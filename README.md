@@ -128,14 +128,14 @@ python run_test_local.py
 Este script executa todos os testes definidos, gerando relatórios em HTML para cada rodada de iteração.
 
 ### 2. Extração de Resultados para Análise
-* a. Extrair métricas agregadas (TPS, Latência, Taxa de Sucesso)
+a. Extrair métricas agregadas (TPS, Latência, Taxa de Sucesso)
 
 ```
 cd src/
 python extract_report_to_csv.py
 ```
 
-* b. Extrair métricas de recursos (CPU, memória, disco, rede)
+b. Extrair métricas de recursos (CPU, memória, disco, rede)
 ```
 python extract_resource_to_csv.py
 ```
