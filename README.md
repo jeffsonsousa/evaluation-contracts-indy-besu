@@ -1,75 +1,86 @@
-# Scenario tests
+# 📘 DID Performance Evaluation using Hyperledger Caliper
 
-## Install the Caliper NVM 
+Este repositório apresenta um ambiente completo para avaliação de desempenho de contratos inteligentes implantados em redes permissionadas baseadas no **Hyperledger Besu**, utilizando o framework **Hyperledger Caliper**. Os testes têm como foco contratos voltados à gestão de identidades descentralizadas (DID), definição de credenciais, revogação e controle de acesso.
+
+---
+
+## ⚙️ Requisitos
+
+- **Node.js** versão 18 (utilizando NVM)
+- **Docker** e **Docker Compose**
+- **Rede Blockchain Besu operacional**
+  - Você pode utilizar uma rede própria **ou** basear-se no tutorial:  
+    🔗 [besu-production-docker](https://github.com/jeffsonsousa/besu-production-docker)
+- **Contratos Inteligentes implantados** na rede
+  - Use:  
+    🔗 [contracts-indy-besu](https://github.com/jeffsonsousa/contracts-indy-besu)
+
+Após a implantação dos contratos, será possível extrair os **endereços de cada contrato** e inseri-los no arquivo de configuração do Caliper para os testes de desempenho.
+
+---
+
+## Instalação do Ambiente de Testes
+
+### 1. Instalação do Node.js com NVM
 ```
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash 
-
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
 nvm install 18
-
 ```
 
-## Install the Caliper NPM Package
+### 2. Instalação do Caliper CLI
 ```
 npm install --only=prod @hyperledger/caliper-cli@0.5.0
 ```
-## Check if it is installed correctly.
+### 3. Verificação da instalação
+
 ```
 npx caliper --version
 ```
-## Bind it to the latest version of Besu.
+### 4. Bind do Caliper com Hyperledger Besu
+
 ```
 npx caliper bind --caliper-bind-sut besu:latest
 ```
-## [OPTIONAL, THIS VERSION DO NOT NEED] Clone the caliper-benchmarks repository. This repository comes with some predefined Workloads against which you can run benchmarks.
-```
-git clone https://github.com/hyperledger/caliper-benchmarks.git
-```
-## Inside this `NetworkConfig` File, we want it to point towards the Web Socket URL, where our Besu Network is running. For this example, it is pointing to,  `ws://localhost:8546`. Also, the ABI for the smart contract has been left out from here, this can be added inside the `abi` field.
+## Configuração dos Arquivos de Teste
+### Arquivo networkconfig.json
+Esse arquivo define os parâmetros de conexão com a rede Besu:
+
 ```
 {
-    "caliper": {
-        "blockchain": "ethereum",
-        "command" : {}
-    },
-    "ethereum": {
-        "url": "ws://IP_BESU_NETWORK:8546",
-        "fromAddress": "CARTEIRA PUBLICA ADM",
-        "fromAddressPrivateKey": "CHAVE PRIVADA ADM",
-        "transactionConfirmationBlocks": 10,
-        "contracts": {
-            "RevocationRegistry": {
-                "address": "0x... ENDEREÇO DO CONTRATO",
-                "estimateGas": true,
-                "gas": {
-                    "_revocation_": 800000
-                },
-                "abi":
-[
-ABI DO CONTRATO
-]
-            }
-        }
+  "caliper": {
+    "blockchain": "ethereum",
+    "command": {}
+  },
+  "ethereum": {
+    "url": "ws://localhost:8546",
+    "fromAddress": "ENDERECO_PUBLICO",
+    "fromAddressPrivateKey": "CHAVE_PRIVADA",
+    "transactionConfirmationBlocks": 10,
+    "contracts": {
+      "RevocationRegistry": {
+        "address": "ENDERECO_CONTRATO",
+        "estimateGas": true,
+        "gas": {
+          "_revocation_": 800000
+        },
+        "abi": [ ABI_DO_CONTRATO ]
+      }
     }
+  }
 }
 ```
-## Modify the config file for variation tests.
+### Arquivo de Benchmark (exemplo config-createDid.yaml)
 ```
 simpleArgs: &simple-args
-  schema: ["did:indy2:indy_besu:MRDxoJ2Mz3WuyqaqsjVTdN/anoncreds/v0/SCHEMA/BasicIdentity/1.0.0","did:indy2:indy_besu:MRDxoJ2Mz3WuyqaqsjVTdN", "BasicIdentity","1.0.0", ["First Name","Last Name"]]
+  schema: ["did:.../SCHEMA/BasicIdentity/1.0.0", "did:...", "BasicIdentity", "1.0.0", ["First Name", "Last Name"]]
   numberOfAccounts: &number-of-accounts 100
 
 test:
   name: CreateSchema Test
-  description: >-
-    This is an example benchmark for Caliper, to test the backend DLT's
-    performance with simple account opening & querying transactions.
   workers:
     number: 1
   rounds:
     - label: CreateSchema
-      description: >-
-        Test description for the opening of an account through the deployed
-        contract.
       txNumber: *number-of-accounts
       rateControl:
         type: fixed-rate
@@ -81,52 +92,73 @@ test:
 
 monitors:
   resource:
-  - module: docker
-    options:
-      interval: 5
-      containers:
-      - rpcnode
-      - indy-besu-validator1-1
-      - indy-besu-validator2-1
-      - indy-besu-validator3-1
-      - indy-besu-validator4-1
-      - indy-besu-validator5-1
-      charting:
-        bar:
-          metrics: [Memory(avg), CPU%(avg)]
-        polar:
-          metrics: [all]
+    - module: docker
+      options:
+        interval: 5
+        containers:
+          - all
+        charting:
+          bar:
+            metrics: [Memory(avg), CPU%(avg)]
+          polar:
+            metrics: [all]
 
 observer:
   type: local
   interval: 5
-```
-## Running the final command!
-```
-
-npx caliper launch manager  --caliper-workspace ./ --caliper-benchconfig benchmarks/scenario/IndyDidRegistry/config-createDid.yaml --caliper-networkconfig ./networks/besu/networkconfig.json --caliper-bind-sut besu:latest --caliper-flow-skip-install
-
-
 
 ```
 
+## Execução de Testes
+### Execução Única
 
-## NEW!
+```
+npx caliper launch manager \
+  --caliper-workspace ./ \
+  --caliper-benchconfig benchmarks/scenario/IndyDidRegistry/config-createDid.yaml \
+  --caliper-networkconfig ./networks/besu/networkconfig.json \
+  --caliper-bind-sut besu:latest \
+  --caliper-flow-skip-install
+``` 
+## Execução Automatizada (Scripts)
+### 1. Executar uma bateria completa de testes
+```
+python run_test_local.py
+```
+Este script executa todos os testes definidos, gerando relatórios em HTML para cada rodada de iteração.
 
-Install Dependencies 
+### 2. Extração de Resultados para Análise
+a. Extrair métricas agregadas (TPS, Latência, Taxa de Sucesso)
 
+```
+cd src/
+python extract_report_to_csv.py
+```
 
-configure run_test_local.py 
+b. Extrair métricas de recursos (CPU, memória, disco, rede)
+```
+python extract_resource_to_csv.py
+```
 
-python3 run_test_local.py
+## Visualização de Resultados
+Os notebooks Jupyter permitem a visualização gráfica dos resultados:
+### Gráficos de Uso de Recursos (CPU, Memória)
+```
+jupyter notebook plot_resources.ipynb
+```
+### Gráficos de Desempenho (TPS, Latência)
+```
+jupyter notebook plot_summary.ipynb
+```
+## Considerações Finais
 
+Esta infraestrutura de testes oferece uma abordagem acadêmica e automatizada para medir o desempenho e a eficiência de contratos inteligentes implantados em redes permissionadas. Os resultados obtidos por meio dos testes são fundamentais para:
 
-npx caliper launch manager  --caliper-workspace ./ --caliper-benchconfig benchmarks/scenario-monitoring/NodeHealthMonitor/config-reportStatus.yaml --caliper-networkconfig ./networks/besu/networkconfig.json --caliper-bind-sut besu:latest --caliper-flow-skip-install
+* Avaliar a escalabilidade dos contratos
 
-npx caliper launch manager  --caliper-workspace ./ --caliper-benchconfig benchmarks/scenario-monitoring/NodeHealthMonitor/config-reportStatus.yaml --caliper-networkconfig ./networks/besu-brad/networkconfig.json --caliper-bind-sut besu:latest --caliper-flow-skip-install
+* Compreender o impacto computacional das funções de identidade descentralizada
 
+* Gerar comparativos entre implementações e versões
 
-npx caliper launch manager  --caliper-workspace ./ --caliper-benchconfig benchmarks/scenario-monitoring/NodeHealthMonitor/config-statusReports.yaml --caliper-networkconfig ./networks/besu-brad/networkconfig.json --caliper-bind-sut besu:latest --caliper-flow-skip-install
-
-npx caliper launch manager  --caliper-workspace ./ --caliper-benchconfig benchmarks/scenario-monitoring/NodeHealthMonitor/config-getLatestStatus.yaml --caliper-networkconfig ./networks/besu-brad/networkconfig.json --caliper-bind-sut besu:latest --caliper-flow-skip-install
+Para contribuições, dúvidas ou extensões, sinta-se à vontade para entrar em contato comigo por email: jeffson.celeiro@gmail.com, jcsousa@cpqd.com.br e jeffson.sousa@icen.ufpa.br. 
 
